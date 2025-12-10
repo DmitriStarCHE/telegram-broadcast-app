@@ -1,3 +1,54 @@
+// Check if Framework7 is loaded
+if (typeof Framework7 === 'undefined') {
+  console.error('Framework7 is not loaded! Check your internet connection or CDN URL.');
+  alert('Ошибка загрузки Framework7. Проверьте интернет-соединение.');
+} else {
+  console.log('Framework7 loaded successfully!');
+}
+
+// Define routes inline
+const routes = [
+  {
+    path: '/',
+    redirect: '/login'
+  },
+  {
+    path: '/login',
+    url: './pages/login.html',
+    options: {
+      animate: false
+    }
+  },
+  {
+    path: '/chats',
+    url: './pages/chats.html',
+    options: {
+      transition: 'f7-dive'
+    }
+  },
+  {
+    path: '/templates',
+    url: './pages/templates.html',
+    options: {
+      transition: 'f7-dive'
+    }
+  },
+  {
+    path: '/broadcast',
+    url: './pages/broadcast.html',
+    options: {
+      transition: 'f7-dive'
+    }
+  },
+  {
+    path: '/settings',
+    url: './pages/settings.html',
+    options: {
+      transition: 'f7-dive'
+    }
+  }
+];
+
 // Initialize Framework7 app
 const app = new Framework7({
   el: '#app',
