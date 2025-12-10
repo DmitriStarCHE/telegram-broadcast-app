@@ -1,0 +1,183 @@
+<div class="page" data-name="login">
+  <div class="page-content login-screen-content">
+    <div class="login-screen-title">
+      <div class="login-logo">
+        <i class="icon f7-icons">paperplane_fill</i>
+      </div>
+      <h1>Telegram Broadcast</h1>
+      <p>Система рассылок объявлений</p>
+    </div>
+
+    <form class="list login-form" id="loginForm">
+      <ul>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Username</div>
+            <div class="item-input-wrap">
+              <input type="text" name="username" placeholder="Введите username" required />
+            </div>
+          </div>
+        </li>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Пароль</div>
+            <div class="item-input-wrap">
+              <input type="password" name="password" placeholder="Введите пароль" required />
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <div class="list login-buttons">
+        <ul>
+          <li>
+            <button class="button button-fill button-large" type="submit">
+              Войти
+            </button>
+          </li>
+          <li>
+            <a href="#" class="button button-outline button-large toggle-register">
+              Регистрация
+            </a>
+          </li>
+        </ul>
+      </div>
+    </form>
+
+    <form class="list register-form" id="registerForm" style="display: none;">
+      <ul>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Username</div>
+            <div class="item-input-wrap">
+              <input type="text" name="username" placeholder="Введите username" required />
+            </div>
+          </div>
+        </li>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Email</div>
+            <div class="item-input-wrap">
+              <input type="email" name="email" placeholder="Введите email" required />
+            </div>
+          </div>
+        </li>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Пароль</div>
+            <div class="item-input-wrap">
+              <input type="password" name="password" placeholder="Минимум 6 символов" required />
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <div class="list login-buttons">
+        <ul>
+          <li>
+            <button class="button button-fill button-large" type="submit">
+              Зарегистрироваться
+            </button>
+          </li>
+          <li>
+            <a href="#" class="button button-outline button-large toggle-login">
+              Уже есть аккаунт
+            </a>
+          </li>
+        </ul>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Login page logic
+  const $loginPage = $$('.page[data-name="login"]');
+  const $loginForm = $loginPage.find('#loginForm');
+  const $registerForm = $loginPage.find('#registerForm');
+
+  // Toggle between login and register
+  $loginPage.find('.toggle-register').on('click', (e) => {
+    e.preventDefault();
+    $loginForm.hide();
+    $registerForm.show();
+  });
+
+  $loginPage.find('.toggle-login').on('click', (e) => {
+    e.preventDefault();
+    $registerForm.hide();
+    $loginForm.show();
+  });
+
+  // Login form submit
+  $loginForm.on('submit', async (e) => {
+    e.preventDefault();
+
+    const username = $loginForm.find('[name="username"]').val().trim();
+    const password = $loginForm.find('[name="password"]').val();
+
+    if (!username || !password) {
+      app.dialog.alert('Заполните все поля', 'Ошибка');
+      return;
+    }
+
+    try {
+      showLoading('Вход...');
+      const response = await api.auth.login(username, password);
+      hideLoading();
+
+      // Save token
+      authService.setToken(response.token);
+
+      // Success
+      showSuccess('Добро пожаловать!');
+
+      // Navigate to chats
+      mainView.router.navigate('/chats', {
+        clearPreviousHistory: true
+      });
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+
+  // Register form submit
+  $registerForm.on('submit', async (e) => {
+    e.preventDefault();
+
+    const username = $registerForm.find('[name="username"]').val().trim();
+    const email = $registerForm.find('[name="email"]').val().trim();
+    const password = $registerForm.find('[name="password"]').val();
+
+    if (!username || !email || !password) {
+      app.dialog.alert('Заполните все поля', 'Ошибка');
+      return;
+    }
+
+    if (password.length < 6) {
+      app.dialog.alert('Пароль должен быть минимум 6 символов', 'Ошибка');
+      return;
+    }
+
+    try {
+      showLoading('Регистрация...');
+      const response = await api.auth.register(username, email, password);
+      hideLoading();
+
+      // Save token
+      authService.setToken(response.token);
+
+      // Success
+      showSuccess('Регистрация успешна!');
+
+      // Navigate to chats
+      mainView.router.navigate('/chats', {
+        clearPreviousHistory: true
+      });
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+</script>

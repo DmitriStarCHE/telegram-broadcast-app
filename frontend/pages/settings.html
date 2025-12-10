@@ -1,0 +1,406 @@
+<div class="page" data-name="settings">
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="navbar-bg"></div>
+    <div class="navbar-inner">
+      <div class="left">
+        <a href="#" class="link icon-only panel-open" data-panel="left">
+          <i class="icon f7-icons">menu</i>
+        </a>
+      </div>
+      <div class="title">Настройки</div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <div class="page-content">
+    <!-- Telegram Bot Settings -->
+    <div class="block-title">Telegram Bot</div>
+    <div class="list no-hairlines">
+      <ul>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Bot Token</div>
+            <div class="item-input-wrap">
+              <input type="password" id="botToken" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" />
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="item-content">
+            <div class="item-inner">
+              <div class="item-title">Статус бота</div>
+              <div class="item-after" id="botStatus">
+                <span class="badge" style="background: #8e8e93;">Не настроен</span>
+              </div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="block block-strong grid grid-cols-2 grid-gap">
+      <button class="col button button-fill" id="saveBotToken">Сохранить</button>
+      <button class="col button button-outline" id="testBotToken">Проверить</button>
+    </div>
+
+    <div class="block">
+      <p style="font-size: 13px; color: #8e8e93;">
+        <strong>Как получить токен:</strong><br>
+        1. Найдите @BotFather в Telegram<br>
+        2. Отправьте команду /newbot<br>
+        3. Следуйте инструкциям<br>
+        4. Скопируйте токен и вставьте сюда
+      </p>
+    </div>
+
+    <!-- Profile Settings -->
+    <div class="block-title">Профиль</div>
+    <div class="list no-hairlines">
+      <ul>
+        <li>
+          <div class="item-content">
+            <div class="item-inner">
+              <div class="item-title">Username</div>
+              <div class="item-after" id="profileUsername">-</div>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="item-content">
+            <div class="item-inner">
+              <div class="item-title">Email</div>
+              <div class="item-after" id="profileEmail">-</div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <button class="button button-outline" id="changePasswordBtn">Изменить пароль</button>
+    </div>
+
+    <!-- History -->
+    <div class="block-title">История рассылок</div>
+    <div class="list">
+      <ul>
+        <li>
+          <a href="#" class="item-link item-content" id="viewHistoryBtn">
+            <div class="item-inner">
+              <div class="item-title">Просмотр истории</div>
+              <div class="item-after">
+                <i class="icon f7-icons">chevron_right</i>
+              </div>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Logout -->
+    <div class="block">
+      <button class="button button-large button-fill color-red" onclick="logout()">
+        <i class="icon f7-icons">power</i> Выйти
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentProfile = null;
+
+  // Load settings on page init
+  app.on('pageInit', '.page[data-name="settings"]', async () => {
+    await loadBotSettings();
+    await loadProfile();
+  });
+
+  // Load bot settings
+  async function loadBotSettings() {
+    try {
+      const response = await api.settings.getBot();
+
+      if (response.bot_token) {
+        $$('#botToken').val(response.bot_token);
+
+        if (response.is_active) {
+          $$('#botStatus').html('<span class="badge color-green">Активен</span>');
+        } else {
+          $$('#botStatus').html('<span class="badge color-orange">Не проверен</span>');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading bot settings:', error);
+    }
+  }
+
+  // Load profile
+  async function loadProfile() {
+    try {
+      const response = await api.settings.getProfile();
+      currentProfile = response;
+
+      $$('#profileUsername').text(response.username);
+      $$('#profileEmail').text(response.email);
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  // Save bot token
+  $$('#saveBotToken').on('click', async () => {
+    const token = $$('#botToken').val().trim();
+
+    if (!token) {
+      app.dialog.alert('Введите токен бота', 'Ошибка');
+      return;
+    }
+
+    try {
+      showLoading('Сохранение...');
+      await api.settings.updateBot(token);
+      hideLoading();
+      showSuccess('Токен сохранен');
+      await loadBotSettings();
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+
+  // Test bot token
+  $$('#testBotToken').on('click', async () => {
+    const token = $$('#botToken').val().trim();
+
+    if (!token) {
+      app.dialog.alert('Сначала введите и сохраните токен', 'Ошибка');
+      return;
+    }
+
+    try {
+      showLoading('Проверка...');
+      const response = await api.settings.testBot();
+      hideLoading();
+
+      if (response.valid) {
+        app.dialog.alert(
+          `Токен валиден!<br><br>
+          <strong>Имя бота:</strong> ${response.bot.first_name}<br>
+          <strong>Username:</strong> @${response.bot.username}`,
+          'Успех'
+        );
+        await loadBotSettings();
+      } else {
+        app.dialog.alert('Токен невалиден', 'Ошибка');
+      }
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+
+  // Change password
+  $$('#changePasswordBtn').on('click', () => {
+    app.dialog.create({
+      title: 'Изменить пароль',
+      content: `
+        <div class="list no-hairlines">
+          <ul>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Старый пароль</div>
+                <div class="item-input-wrap">
+                  <input type="password" id="oldPassword" required />
+                </div>
+              </div>
+            </li>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Новый пароль</div>
+                <div class="item-input-wrap">
+                  <input type="password" id="newPassword" required />
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Отмена'
+        },
+        {
+          text: 'Изменить',
+          bold: true,
+          onClick: async () => {
+            const oldPassword = $$('#oldPassword').val();
+            const newPassword = $$('#newPassword').val();
+
+            if (!oldPassword || !newPassword) {
+              app.dialog.alert('Заполните все поля', 'Ошибка');
+              return;
+            }
+
+            if (newPassword.length < 6) {
+              app.dialog.alert('Новый пароль должен быть минимум 6 символов', 'Ошибка');
+              return;
+            }
+
+            try {
+              showLoading('Изменение...');
+              await api.settings.updatePassword(oldPassword, newPassword);
+              hideLoading();
+              showSuccess('Пароль изменен');
+            } catch (error) {
+              hideLoading();
+              handleApiError(error);
+            }
+          }
+        }
+      ]
+    }).open();
+  });
+
+  // View history
+  $$('#viewHistoryBtn').on('click', async (e) => {
+    e.preventDefault();
+
+    try {
+      showLoading('Загрузка истории...');
+      const response = await api.broadcast.getHistory(50);
+      hideLoading();
+
+      if (!response.broadcasts || response.broadcasts.length === 0) {
+        app.dialog.alert('История пуста', 'История рассылок');
+        return;
+      }
+
+      showHistorySheet(response.broadcasts);
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+
+  // Show history sheet
+  function showHistorySheet(broadcasts) {
+    const html = broadcasts.map(b => {
+      const date = new Date(b.started_at).toLocaleString('ru-RU');
+      const statusColor = b.status === 'completed' ? 'green' : b.status === 'in_progress' ? 'orange' : 'gray';
+
+      return `
+        <li>
+          <a href="#" class="item-link item-content" onclick="viewBroadcastDetails(${b.id})">
+            <div class="item-inner">
+              <div class="item-title-row">
+                <div class="item-title">Рассылка #${b.id}</div>
+                <div class="item-after">
+                  <span class="badge color-${statusColor}">${b.status}</span>
+                </div>
+              </div>
+              <div class="item-subtitle">${date}</div>
+              <div class="item-text">
+                Отправлено: ${b.successful_sends}/${b.total_chats}
+                ${b.failed_sends > 0 ? `<span style="color: #ff3b30;">| Ошибок: ${b.failed_sends}</span>` : ''}
+              </div>
+            </div>
+          </a>
+        </li>
+      `;
+    }).join('');
+
+    app.sheet.create({
+      content: `
+        <div class="sheet-modal">
+          <div class="toolbar">
+            <div class="toolbar-inner">
+              <div class="left"></div>
+              <div class="right">
+                <a href="#" class="link sheet-close">Закрыть</a>
+              </div>
+            </div>
+          </div>
+          <div class="sheet-modal-inner">
+            <div class="page-content">
+              <div class="block-title">История рассылок</div>
+              <div class="list media-list">
+                <ul>${html}</ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      swipeToClose: true
+    }).open();
+  }
+
+  // View broadcast details
+  window.viewBroadcastDetails = async function(broadcastId) {
+    try {
+      showLoading();
+      const [summary, details] = await Promise.all([
+        api.broadcast.getById(broadcastId),
+        api.broadcast.getDetails(broadcastId)
+      ]);
+      hideLoading();
+
+      const date = new Date(summary.started_at).toLocaleString('ru-RU');
+
+      const detailsHtml = details.details.map(d => {
+        const statusIcon = d.status === 'sent' ? 'checkmark_circle_fill' : 'xmark_circle_fill';
+        const statusColor = d.status === 'sent' ? '#4cd964' : '#ff3b30';
+
+        return `
+          <li>
+            <div class="item-content">
+              <div class="item-media">
+                <i class="icon f7-icons" style="font-size: 28px; color: ${statusColor};">${statusIcon}</i>
+              </div>
+              <div class="item-inner">
+                <div class="item-title">${d.chat_name || 'Chat ' + d.chat_id}</div>
+                <div class="item-subtitle">ID: ${d.chat_id}</div>
+                ${d.error_message ? `<div class="item-text" style="color: #ff3b30;">${d.error_message}</div>` : ''}
+              </div>
+            </div>
+          </li>
+        `;
+      }).join('');
+
+      app.dialog.create({
+        title: `Рассылка #${broadcastId}`,
+        content: `
+          <div style="text-align: left;">
+            <div style="margin-bottom: 15px;">
+              <strong>Дата:</strong> ${date}<br>
+              <strong>Статус:</strong> ${summary.status}<br>
+              <strong>Всего чатов:</strong> ${summary.total_chats}<br>
+              <strong>Успешно:</strong> <span style="color: #4cd964;">${summary.successful_sends}</span><br>
+              <strong>Ошибок:</strong> <span style="color: #ff3b30;">${summary.failed_sends}</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>Сообщение:</strong>
+              <div style="background: #f7f7f8; padding: 10px; border-radius: 8px; margin-top: 5px; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
+                ${summary.message_content}
+              </div>
+            </div>
+            <div>
+              <strong>Детали отправки:</strong>
+              <div class="list media-list" style="margin: 10px -20px 0;">
+                <ul>${detailsHtml}</ul>
+              </div>
+            </div>
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Закрыть'
+          }
+        ]
+      }).open();
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  };
+</script>

@@ -1,0 +1,283 @@
+<div class="page" data-name="chats">
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="navbar-bg"></div>
+    <div class="navbar-inner">
+      <div class="left">
+        <a href="#" class="link icon-only panel-open" data-panel="left">
+          <i class="icon f7-icons">menu</i>
+        </a>
+      </div>
+      <div class="title">Чаты</div>
+      <div class="right">
+        <a href="#" class="link icon-only" id="refreshChats">
+          <i class="icon f7-icons">arrow_clockwise</i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <div class="page-content">
+    <!-- Empty state -->
+    <div class="block block-strong text-align-center empty-state" style="display: none;">
+      <p><i class="icon f7-icons" style="font-size: 64px; color: #8e8e93;">bubble_left_bubble_right</i></p>
+      <p>У вас пока нет чатов</p>
+      <p>Добавьте ваш первый Telegram чат</p>
+    </div>
+
+    <!-- Chats list -->
+    <div class="list media-list chats-list">
+      <ul id="chatsList">
+        <!-- Chats will be loaded here -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <a href="#" class="fab fab-right-bottom" id="addChatFab">
+    <i class="icon f7-icons">plus</i>
+  </a>
+</div>
+
+<script>
+  let chatsData = [];
+
+  // Load chats on page init
+  app.on('pageInit', '.page[data-name="chats"]', async () => {
+    await loadChats();
+  });
+
+  // Refresh chats
+  $$('#refreshChats').on('click', async (e) => {
+    e.preventDefault();
+    await loadChats();
+    showSuccess('Список обновлен');
+  });
+
+  // Load chats function
+  async function loadChats() {
+    try {
+      showLoading();
+      const response = await api.chats.getAll();
+      hideLoading();
+
+      chatsData = response.chats || [];
+      renderChats();
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  }
+
+  // Render chats list
+  function renderChats() {
+    const $list = $$('#chatsList');
+    const $emptyState = $$('.empty-state');
+
+    if (chatsData.length === 0) {
+      $list.html('');
+      $emptyState.show();
+      return;
+    }
+
+    $emptyState.hide();
+
+    const html = chatsData.map(chat => `
+      <li class="swipeout">
+        <div class="swipeout-content">
+          <a href="#" class="item-link item-content">
+            <div class="item-media">
+              <i class="icon f7-icons" style="font-size: 32px; color: ${chat.is_active ? '#4cd964' : '#8e8e93'};">
+                ${chat.is_active ? 'checkmark_circle_fill' : 'circle'}
+              </i>
+            </div>
+            <div class="item-inner">
+              <div class="item-title-row">
+                <div class="item-title">${chat.chat_name}</div>
+                <div class="item-after">${chat.is_active ? 'Активен' : 'Неактивен'}</div>
+              </div>
+              <div class="item-subtitle">Chat ID: ${chat.chat_id}</div>
+              <div class="item-text">${chat.description || ''}</div>
+            </div>
+          </a>
+        </div>
+        <div class="swipeout-actions-right">
+          <a href="#" class="swipeout-toggle" style="background: ${chat.is_active ? '#ff9500' : '#4cd964'};" onclick="toggleChat(${chat.id}, ${!chat.is_active})">
+            ${chat.is_active ? 'Деактивировать' : 'Активировать'}
+          </a>
+          <a href="#" class="swipeout-edit" style="background: #007aff;" onclick="editChat(${chat.id})">
+            Изменить
+          </a>
+          <a href="#" class="swipeout-delete" data-confirm="Удалить этот чат?" onclick="deleteChat(${chat.id})">
+            Удалить
+          </a>
+        </div>
+      </li>
+    `).join('');
+
+    $list.html(html);
+  }
+
+  // Toggle chat active status
+  window.toggleChat = async function(chatId, isActive) {
+    try {
+      showLoading();
+      await api.chats.toggle(chatId, isActive);
+      hideLoading();
+      showSuccess(isActive ? 'Чат активирован' : 'Чат деактивирован');
+      await loadChats();
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  };
+
+  // Edit chat
+  window.editChat = function(chatId) {
+    const chat = chatsData.find(c => c.id === chatId);
+    if (!chat) return;
+
+    app.dialog.create({
+      title: 'Редактировать чат',
+      text: 'Измените название и описание',
+      content: `
+        <div class="list no-hairlines">
+          <ul>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Название</div>
+                <div class="item-input-wrap">
+                  <input type="text" id="editChatName" value="${chat.chat_name}" required />
+                </div>
+              </div>
+            </li>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Описание</div>
+                <div class="item-input-wrap">
+                  <textarea id="editChatDescription">${chat.description || ''}</textarea>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Отмена'
+        },
+        {
+          text: 'Сохранить',
+          bold: true,
+          onClick: async () => {
+            const name = $$('#editChatName').val().trim();
+            const description = $$('#editChatDescription').val().trim();
+
+            if (!name) {
+              app.dialog.alert('Введите название', 'Ошибка');
+              return;
+            }
+
+            try {
+              showLoading();
+              await api.chats.update(chatId, name, description);
+              hideLoading();
+              showSuccess('Чат обновлен');
+              await loadChats();
+            } catch (error) {
+              hideLoading();
+              handleApiError(error);
+            }
+          }
+        }
+      ]
+    }).open();
+  };
+
+  // Delete chat
+  window.deleteChat = function(chatId) {
+    app.dialog.confirm('Вы уверены что хотите удалить этот чат?', 'Удаление', async () => {
+      try {
+        showLoading();
+        await api.chats.delete(chatId);
+        hideLoading();
+        showSuccess('Чат удален');
+        await loadChats();
+      } catch (error) {
+        hideLoading();
+        handleApiError(error);
+      }
+    });
+  };
+
+  // Add chat FAB click
+  $$('#addChatFab').on('click', (e) => {
+    e.preventDefault();
+
+    app.dialog.create({
+      title: 'Добавить чат',
+      text: 'Введите данные Telegram чата',
+      content: `
+        <div class="list no-hairlines">
+          <ul>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Chat ID</div>
+                <div class="item-input-wrap">
+                  <input type="text" id="newChatId" placeholder="-1001234567890" required />
+                </div>
+              </div>
+            </li>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Название</div>
+                <div class="item-input-wrap">
+                  <input type="text" id="newChatName" placeholder="Название группы" required />
+                </div>
+              </div>
+            </li>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Описание</div>
+                <div class="item-input-wrap">
+                  <textarea id="newChatDescription" placeholder="Опционально"></textarea>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Отмена'
+        },
+        {
+          text: 'Добавить',
+          bold: true,
+          onClick: async () => {
+            const chatId = $$('#newChatId').val().trim();
+            const chatName = $$('#newChatName').val().trim();
+            const description = $$('#newChatDescription').val().trim();
+
+            if (!chatId || !chatName) {
+              app.dialog.alert('Заполните обязательные поля', 'Ошибка');
+              return;
+            }
+
+            try {
+              showLoading();
+              await api.chats.create(chatId, chatName, description);
+              hideLoading();
+              showSuccess('Чат добавлен');
+              await loadChats();
+            } catch (error) {
+              hideLoading();
+              handleApiError(error);
+            }
+          }
+        }
+      ]
+    }).open();
+  });
+</script>

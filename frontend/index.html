@@ -14,6 +14,55 @@
 <body>
   <!-- App Root -->
   <div id="app">
+    <!-- Left Panel (Menu) -->
+    <div class="panel panel-left panel-reveal panel-init">
+      <div class="view">
+        <div class="page">
+          <div class="navbar">
+            <div class="navbar-bg"></div>
+            <div class="navbar-inner">
+              <div class="title">Меню</div>
+            </div>
+          </div>
+          <div class="page-content">
+            <div class="list links-list">
+              <ul>
+                <li>
+                  <a href="/chats" class="panel-close">
+                    <i class="icon f7-icons">bubble_left_bubble_right</i>
+                    <span>Чаты</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="/templates" class="panel-close">
+                    <i class="icon f7-icons">doc_text</i>
+                    <span>Шаблоны</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="/broadcast" class="panel-close">
+                    <i class="icon f7-icons">paperplane</i>
+                    <span>Рассылка</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="/settings" class="panel-close">
+                    <i class="icon f7-icons">gear_alt</i>
+                    <span>Настройки</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div class="block">
+              <button class="button button-large button-outline color-red" onclick="logout()">
+                <i class="icon f7-icons">power</i> Выйти
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Main View -->
     <div class="view view-main view-init safe-areas" data-url="/">
       <!-- Loader Screen -->

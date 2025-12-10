@@ -1,0 +1,317 @@
+<div class="page" data-name="broadcast">
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="navbar-bg"></div>
+    <div class="navbar-inner">
+      <div class="left">
+        <a href="#" class="link icon-only panel-open" data-panel="left">
+          <i class="icon f7-icons">menu</i>
+        </a>
+      </div>
+      <div class="title">Рассылка</div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <div class="page-content">
+    <!-- Template selector -->
+    <div class="block-title">Выберите шаблон</div>
+    <div class="block">
+      <div class="segmented segmented-strong" id="templateSelector">
+        <button class="button" data-slot="1">Шаблон 1</button>
+        <button class="button" data-slot="2">Шаблон 2</button>
+        <button class="button" data-slot="3">Шаблон 3</button>
+        <button class="button button-active" data-slot="0">Свой текст</button>
+      </div>
+    </div>
+
+    <!-- Message editor -->
+    <div class="list no-hairlines">
+      <ul>
+        <li class="item-content item-input">
+          <div class="item-inner">
+            <div class="item-title item-label">Сообщение</div>
+            <div class="item-input-wrap">
+              <textarea id="messageContent" placeholder="Введите текст сообщения или выберите шаблон" style="height: 200px;"></textarea>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Variables input (shown when template has variables) -->
+    <div id="variablesBlock" style="display: none;">
+      <div class="block-title">Заполните переменные</div>
+      <div class="list no-hairlines">
+        <ul id="variablesList">
+          <!-- Variables will be added here -->
+        </ul>
+      </div>
+    </div>
+
+    <!-- Chat selector -->
+    <div class="block-title">Выберите чаты для рассылки</div>
+    <div class="list">
+      <ul id="chatsList">
+        <li>
+          <label class="item-checkbox item-content">
+            <input type="checkbox" id="selectAllChats" />
+            <i class="icon icon-checkbox"></i>
+            <div class="item-inner">
+              <div class="item-title"><strong>Выбрать все</strong></div>
+            </div>
+          </label>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="block">
+      <button class="button button-large button-fill" id="previewBtn">
+        <i class="icon f7-icons">eye</i> Предпросмотр
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentTemplate = null;
+  let chatsData = [];
+  let templatesData = {};
+  let variablesValues = {};
+
+  // Load data on page init
+  app.on('pageInit', '.page[data-name="broadcast"]', async () => {
+    await loadChats();
+    await loadTemplates();
+  });
+
+  // Load chats
+  async function loadChats() {
+    try {
+      const response = await api.chats.getAll();
+      chatsData = (response.chats || []).filter(c => c.is_active);
+      renderChatsList();
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  // Load templates
+  async function loadTemplates() {
+    try {
+      const response = await api.templates.getAll();
+      templatesData = {};
+      response.templates.forEach(t => {
+        templatesData[t.slot_number] = t;
+      });
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  // Render chats list
+  function renderChatsList() {
+    const $list = $$('#chatsList');
+
+    if (chatsData.length === 0) {
+      $list.html('<li><div class="item-content"><div class="item-inner"><div class="item-title text-color-gray">Нет активных чатов</div></div></div></li>');
+      return;
+    }
+
+    const selectAllHtml = `
+      <li>
+        <label class="item-checkbox item-content">
+          <input type="checkbox" id="selectAllChats" />
+          <i class="icon icon-checkbox"></i>
+          <div class="item-inner">
+            <div class="item-title"><strong>Выбрать все</strong></div>
+          </div>
+        </label>
+      </li>
+    `;
+
+    const chatsHtml = chatsData.map(chat => `
+      <li>
+        <label class="item-checkbox item-content">
+          <input type="checkbox" class="chat-checkbox" value="${chat.id}" />
+          <i class="icon icon-checkbox"></i>
+          <div class="item-inner">
+            <div class="item-title">${chat.chat_name}</div>
+            <div class="item-after">ID: ${chat.chat_id}</div>
+          </div>
+        </label>
+      </li>
+    `).join('');
+
+    $list.html(selectAllHtml + chatsHtml);
+
+    // Select all handler
+    $$('#selectAllChats').on('change', function() {
+      const checked = this.checked;
+      $$('.chat-checkbox').each(function() {
+        this.checked = checked;
+      });
+    });
+  }
+
+  // Template selector
+  $$('#templateSelector button').on('click', function() {
+    const slot = parseInt($$(this).attr('data-slot'));
+
+    $$('#templateSelector button').removeClass('button-active');
+    $$(this).addClass('button-active');
+
+    if (slot === 0) {
+      // Custom text
+      currentTemplate = null;
+      $$('#variablesBlock').hide();
+      $$('#messageContent').val('').prop('readonly', false);
+    } else {
+      // Load template
+      const template = templatesData[slot];
+      if (template) {
+        currentTemplate = template;
+        $$('#messageContent').val(template.content).prop('readonly', false);
+
+        // Show variables inputs if template has variables
+        if (template.variables && template.variables.length > 0) {
+          renderVariablesInputs(template.variables);
+        } else {
+          $$('#variablesBlock').hide();
+        }
+      } else {
+        app.dialog.alert(`Шаблон ${slot} пуст. Создайте его в разделе "Шаблоны"`, 'Внимание');
+        $$('#templateSelector button[data-slot="0"]').click();
+      }
+    }
+  });
+
+  // Render variables inputs
+  function renderVariablesInputs(variables) {
+    const html = variables.map(varName => `
+      <li class="item-content item-input">
+        <div class="item-inner">
+          <div class="item-title item-label">{{${varName}}}</div>
+          <div class="item-input-wrap">
+            <input type="text" class="variable-input" data-var="${varName}" placeholder="Введите значение" />
+          </div>
+        </div>
+      </li>
+    `).join('');
+
+    $$('#variablesList').html(html);
+    $$('#variablesBlock').show();
+
+    // Update message on variable input
+    $$('.variable-input').on('input', function() {
+      const varName = $$(this).attr('data-var');
+      const value = $$(this).val();
+      variablesValues[varName] = value;
+    });
+  }
+
+  // Preview button
+  $$('#previewBtn').on('click', async () => {
+    const content = $$('#messageContent').val().trim();
+    const selectedChats = [];
+
+    $$('.chat-checkbox:checked').each(function() {
+      selectedChats.push(parseInt($$(this).val()));
+    });
+
+    if (!content) {
+      app.dialog.alert('Введите текст сообщения', 'Ошибка');
+      return;
+    }
+
+    if (selectedChats.length === 0) {
+      app.dialog.alert('Выберите хотя бы один чат', 'Ошибка');
+      return;
+    }
+
+    try {
+      showLoading('Подготовка...');
+      const response = await api.broadcast.preview(content, variablesValues, selectedChats);
+      hideLoading();
+
+      // Show preview popup
+      showPreviewPopup(response);
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  });
+
+  // Show preview popup
+  function showPreviewPopup(previewData) {
+    const chatsListHtml = previewData.chats.map(c =>
+      `<li>${c.chat_name} <span style="color: #8e8e93;">(${c.chat_id})</span></li>`
+    ).join('');
+
+    app.dialog.create({
+      title: 'Предпросмотр рассылки',
+      content: `
+        <div style="text-align: left;">
+          <div style="margin-bottom: 15px;">
+            <strong>Итоговое сообщение:</strong>
+            <div style="background: #f7f7f8; padding: 10px; border-radius: 8px; margin-top: 5px; white-space: pre-wrap;">
+              ${previewData.previewContent}
+            </div>
+          </div>
+          <div>
+            <strong>Получатели (${previewData.totalRecipients}):</strong>
+            <ul style="margin: 5px 0; padding-left: 20px; max-height: 150px; overflow-y: auto;">
+              ${chatsListHtml}
+            </ul>
+          </div>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Отмена'
+        },
+        {
+          text: 'Отправить',
+          bold: true,
+          onClick: () => {
+            sendBroadcast(previewData.previewContent, previewData.chats.map(c => c.id));
+          }
+        }
+      ]
+    }).open();
+  }
+
+  // Send broadcast
+  async function sendBroadcast(content, chatIds) {
+    try {
+      showLoading('Отправка...');
+      const response = await api.broadcast.send(
+        content,
+        chatIds,
+        currentTemplate ? currentTemplate.id : null
+      );
+      hideLoading();
+
+      // Show success
+      app.dialog.alert(
+        `Рассылка запущена!<br><br>
+        ID рассылки: ${response.broadcastLogId}<br>
+        Всего чатов: ${response.totalChats}<br><br>
+        Сообщения отправляются в фоновом режиме. Проверьте историю в настройках через несколько секунд.`,
+        'Успех',
+        () => {
+          // Clear form
+          $$('#messageContent').val('');
+          $$('.chat-checkbox').prop('checked', false);
+          $$('#selectAllChats').prop('checked', false);
+          $$('#templateSelector button[data-slot="0"]').click();
+          variablesValues = {};
+        }
+      );
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  }
+</script>

@@ -1,0 +1,242 @@
+<div class="page" data-name="templates">
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="navbar-bg"></div>
+    <div class="navbar-inner">
+      <div class="left">
+        <a href="#" class="link icon-only panel-open" data-panel="left">
+          <i class="icon f7-icons">menu</i>
+        </a>
+      </div>
+      <div class="title">Шаблоны</div>
+      <div class="right">
+        <a href="#" class="link icon-only" id="refreshTemplates">
+          <i class="icon f7-icons">arrow_clockwise</i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <div class="page-content">
+    <div class="block-title">3 слота для ваших шаблонов</div>
+
+    <!-- Template Slot 1 -->
+    <div class="card template-card" data-slot="1">
+      <div class="card-header">
+        <div class="template-slot-number">Слот 1</div>
+        <div class="template-status">Пусто</div>
+      </div>
+      <div class="card-content card-content-padding">
+        <p class="template-placeholder">Нажмите "Редактировать" чтобы создать шаблон</p>
+        <div class="template-preview" style="display: none;"></div>
+      </div>
+      <div class="card-footer">
+        <a href="#" class="link" onclick="editTemplate(1)">Редактировать</a>
+        <a href="#" class="link template-delete" style="display: none;" onclick="deleteTemplate(1)">Удалить</a>
+      </div>
+    </div>
+
+    <!-- Template Slot 2 -->
+    <div class="card template-card" data-slot="2">
+      <div class="card-header">
+        <div class="template-slot-number">Слот 2</div>
+        <div class="template-status">Пусто</div>
+      </div>
+      <div class="card-content card-content-padding">
+        <p class="template-placeholder">Нажмите "Редактировать" чтобы создать шаблон</p>
+        <div class="template-preview" style="display: none;"></div>
+      </div>
+      <div class="card-footer">
+        <a href="#" class="link" onclick="editTemplate(2)">Редактировать</a>
+        <a href="#" class="link template-delete" style="display: none;" onclick="deleteTemplate(2)">Удалить</a>
+      </div>
+    </div>
+
+    <!-- Template Slot 3 -->
+    <div class="card template-card" data-slot="3">
+      <div class="card-header">
+        <div class="template-slot-number">Слот 3</div>
+        <div class="template-status">Пусто</div>
+      </div>
+      <div class="card-content card-content-padding">
+        <p class="template-placeholder">Нажмите "Редактировать" чтобы создать шаблон</p>
+        <div class="template-preview" style="display: none;"></div>
+      </div>
+      <div class="card-footer">
+        <a href="#" class="link" onclick="editTemplate(3)">Редактировать</a>
+        <a href="#" class="link template-delete" style="display: none;" onclick="deleteTemplate(3)">Удалить</a>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="text-color-gray">
+        <strong>Подсказка:</strong> Используйте переменные в формате {{variable}} для динамической подстановки.
+        Например: {{company}}, {{price}}, {{date}}, {{phone}}
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let templatesData = {};
+
+  // Load templates on page init
+  app.on('pageInit', '.page[data-name="templates"]', async () => {
+    await loadTemplates();
+  });
+
+  // Refresh templates
+  $$('#refreshTemplates').on('click', async (e) => {
+    e.preventDefault();
+    await loadTemplates();
+    showSuccess('Шаблоны обновлены');
+  });
+
+  // Load templates function
+  async function loadTemplates() {
+    try {
+      showLoading();
+      const response = await api.templates.getAll();
+      hideLoading();
+
+      templatesData = {};
+      response.templates.forEach(t => {
+        templatesData[t.slot_number] = t;
+      });
+
+      renderTemplates();
+    } catch (error) {
+      hideLoading();
+      handleApiError(error);
+    }
+  }
+
+  // Render templates
+  function renderTemplates() {
+    [1, 2, 3].forEach(slot => {
+      const template = templatesData[slot];
+      const $card = $$(`.template-card[data-slot="${slot}"]`);
+      const $status = $card.find('.template-status');
+      const $placeholder = $card.find('.template-placeholder');
+      const $preview = $card.find('.template-preview');
+      const $deleteBtn = $card.find('.template-delete');
+
+      if (template) {
+        // Template exists
+        $status.text('Заполнено').css('color', '#4cd964');
+        $placeholder.hide();
+        $preview.show().html(`
+          <strong>${template.title}</strong><br>
+          <small style="white-space: pre-wrap;">${template.content.substring(0, 100)}${template.content.length > 100 ? '...' : ''}</small>
+        `);
+        $deleteBtn.show();
+      } else {
+        // Empty slot
+        $status.text('Пусто').css('color', '#8e8e93');
+        $placeholder.show();
+        $preview.hide();
+        $deleteBtn.hide();
+      }
+    });
+  }
+
+  // Edit template
+  window.editTemplate = function(slot) {
+    const template = templatesData[slot] || {};
+
+    app.dialog.create({
+      title: `Редактировать шаблон (Слот ${slot})`,
+      content: `
+        <div class="list no-hairlines">
+          <ul>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Название</div>
+                <div class="item-input-wrap">
+                  <input type="text" id="templateTitle" value="${template.title || ''}" placeholder="Название шаблона" required />
+                </div>
+              </div>
+            </li>
+            <li class="item-content item-input">
+              <div class="item-inner">
+                <div class="item-title item-label">Содержание</div>
+                <div class="item-input-wrap">
+                  <textarea id="templateContent" placeholder="Текст с переменными {{variable}}" style="height: 150px;" required>${template.content || ''}</textarea>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="block">
+          <p style="font-size: 12px; color: #8e8e93;">
+            Используйте переменные: {{company}}, {{price}}, {{date}}, {{phone}}, {{diameter}} и др.
+          </p>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Отмена'
+        },
+        {
+          text: 'Сохранить',
+          bold: true,
+          onClick: async () => {
+            const title = $$('#templateTitle').val().trim();
+            const content = $$('#templateContent').val().trim();
+
+            if (!title || !content) {
+              app.dialog.alert('Заполните все поля', 'Ошибка');
+              return;
+            }
+
+            // Extract variables from content
+            const variables = extractVariables(content);
+
+            try {
+              showLoading();
+              await api.templates.save(slot, title, content, variables);
+              hideLoading();
+              showSuccess('Шаблон сохранен');
+              await loadTemplates();
+            } catch (error) {
+              hideLoading();
+              handleApiError(error);
+            }
+          }
+        }
+      ]
+    }).open();
+  };
+
+  // Delete template
+  window.deleteTemplate = function(slot) {
+    app.dialog.confirm('Вы уверены что хотите удалить этот шаблон?', 'Удаление', async () => {
+      try {
+        showLoading();
+        await api.templates.delete(slot);
+        hideLoading();
+        showSuccess('Шаблон удален');
+        await loadTemplates();
+      } catch (error) {
+        hideLoading();
+        handleApiError(error);
+      }
+    });
+  };
+
+  // Extract variables from template content
+  function extractVariables(content) {
+    const regex = /\{\{(\w+)\}\}/g;
+    const variables = [];
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      if (!variables.includes(match[1])) {
+        variables.push(match[1]);
+      }
+    }
+
+    return variables;
+  }
+</script>
